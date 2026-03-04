@@ -1,15 +1,12 @@
 """
-Addestramento del modello LayoutLM (v1) per estrazione dati da fatture
-Versione compatibile con Windows che utilizza le librerie Hugging Face
-Versione modificata con supporto per apprendimento continuo/incrementale
+Addestramento del modello LayoutLM (v1) per estrazione dati da fatture.
+Supporta apprendimento continuo/incrementale.
 """
 
 import os
 import sys
 import json
 import torch
-import platform
-import shutil
 import pandas as pd
 import numpy as np
 import traceback
@@ -19,7 +16,7 @@ from pathlib import Path
 from torch.utils.data import Dataset, DataLoader
 from transformers import (
     LayoutLMForTokenClassification,
-    LayoutLMTokenizer, 
+    LayoutLMTokenizer,
     LayoutLMConfig,
     TrainingArguments,
     Trainer
@@ -28,105 +25,8 @@ import pytesseract
 from pdf2image import convert_from_path
 from PIL import Image
 
-def _detect_path(binary_name, fallbacks=None):
-    path = shutil.which(binary_name)
-    if path:
-        return path
-    if fallbacks:
-        for fb in fallbacks:
-            if Path(fb).exists():
-                return fb
-    return binary_name
-
-DEFAULT_CONFIG = {
-    "POPPLER_PATH": str(Path(_detect_path("pdftoppm", ["/opt/homebrew/bin/pdftoppm", "/usr/bin/pdftoppm"])).parent),
-    "TESSERACT_PATH": _detect_path("tesseract", ["/opt/homebrew/bin/tesseract", "/usr/bin/tesseract"]),
-    "BASE_MODEL_DIR": "models/layoutlm-base-uncased",
-    "TRAINED_MODEL_DIR": "models/invoice_model",
-    "RESULTS_DIR": "output_data/results",
-    "PDF_DPI": 300,
-    "BATCH_SIZE": 2,
-    "NUM_EPOCHS": 5,
-    "LEARNING_RATE": 2e-5,
-    "MAX_PAGES": 2,
-    "MAX_SEQ_LENGTH": 512,
-    "PDF_TIMEOUT": 120
-}
-
-
-######################################################################################################################################################
-
-# Carica configurazione da file se esiste
-def load_config():
-    config = DEFAULT_CONFIG.copy()
-    config_file = Path("invoice_config.json")
-    
-    if config_file.exists():
-        try:
-            with open(config_file, "r") as f:
-                user_config = json.load(f)
-                print("Configurazione predefinita:")
-                for key, value in config.items():
-                    print(f"  - {key}: {value}")
-                
-                if user_config:
-                    print("\nValori da file di configurazione:")
-                    for key, value in user_config.items():
-                        print(f"  - {key}: {value}")
-                    config.update(user_config)
-                
-            print(f"Configurazione caricata da {config_file}")
-        except Exception as e:
-            print(f"Errore nel caricamento della configurazione: {e}")
-    
-    for key in ["POPPLER_PATH", "TESSERACT_PATH"]:
-        path = Path(config[key])
-        if not path.exists():
-            print(f"ATTENZIONE: Il percorso {key}={path} non esiste!")
-    
-    tesseract_path = Path(config["TESSERACT_PATH"])
-    if tesseract_path.is_dir():
-        tesseract_bin = "tesseract.exe" if platform.system() == "Windows" else "tesseract"
-        config["TESSERACT_PATH"] = str(tesseract_path / tesseract_bin)
-        print(f"Percorso Tesseract aggiornato a: {config['TESSERACT_PATH']}")
-    
-    return config
-
-######################################################################################################################################################
-
-CONFIG = load_config()
-
-LABELS = [
-    "O", "B-VENDOR", "I-VENDOR", "B-CUSTOMER", "I-CUSTOMER", "B-DATE", "I-DATE",
-    "B-TOTAL", "I-TOTAL", "B-ITEM", "I-ITEM", "B-QUANTITY", "I-QUANTITY",
-    "B-PRICE", "I-PRICE", "B-INVOICE_NUMBER", "I-INVOICE_NUMBER"
-]
-id2label = {i: label for i, label in enumerate(LABELS)}
-label2id = {label: i for i, label in enumerate(LABELS)}
-
-
-######################################################################################################################################################
-
-def normalize_box(box, width, height):
-    if width <= 0 or height <= 0:
-        raise ValueError(f"Dimensioni dell'immagine non valide: {width}x{height}")
-    x1 = min(max(0, box[0]), width - 1)
-    y1 = min(max(0, box[1]), height - 1)
-    x2 = min(max(x1 + 1, box[2]), width)
-    y2 = min(max(y1 + 1, box[3]), height)
-    normalized_box = [
-        int(1000 * (x1 / width)),
-        int(1000 * (y1 / height)),
-        int(1000 * (x2 / width)),
-        int(1000 * (y2 / height)),
-    ]
-    for i, coord in enumerate(normalized_box):
-        if coord < 0 or coord > 1000:
-            print(f"ATTENZIONE: Coordinata normalizzata fuori range: {coord}. Valore corretto.")
-            normalized_box[i] = max(0, min(1000, coord))
-    return normalized_box
-
-######################################################################################################################################################
+from config import CONFIG, LABELS, id2label, label2id
+from utils import normalize_box
 
 class InvoiceDataset(Dataset):
     def __init__(self, pdf_paths, annotations_df, tokenizer, poppler_path=None, tesseract_path=None, max_length=512):
