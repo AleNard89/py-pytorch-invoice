@@ -192,7 +192,7 @@ python evaluate.py --output output_data/results/eval_results.json
 - **Training**: HuggingFace Trainer + Accelerate
 - **OCR**: Tesseract (via pytesseract)
 - **PDF rendering**: Poppler (via pdf2image)
-- **Annotation GUI**: PyQt6 (dark theme, HiDPI/Retina, zoom/pan)
+- **Annotation GUI**: PyQt6 instead of tkinter -- native HiDPI/Retina support (correct click coordinates on high-DPI displays), proper zoom/pan via QGraphicsView, dark theme
 - **Data**: pandas + openpyxl
 
 ## License
