@@ -63,21 +63,22 @@ pytorch_modular/
 │   ├── config.py                # Shared configuration, labels, path auto-detection
 │   ├── utils.py                 # Format validators, text similarity, normalization
 │   ├── ocr.py                   # PDF-to-image conversion, Tesseract OCR
-│   ├── model.py                 # LayoutLM tokenizer loading
+│   ├── model.py                 # LayoutLM model/tokenizer loading (v1 + v3)
 │   ├── extraction.py            # Entity extraction, postprocessing, heuristics
 │   ├── export.py                # Excel export, prediction visualization
 │   ├── evaluate.py              # Model evaluation (precision/recall/F1)
 │   ├── invoice_inference.py     # Inference entry point
 │   ├── train_invoice_model.py   # Training entry point (incremental learning)
 │   ├── preannotate.py           # Model pre-annotation for active learning
-│   ├── annotation_tool.py       # GUI for creating/correcting annotations
+│   ├── annotation_tool.py       # PyQt6 GUI for annotation (dark theme, zoom, HiDPI)
 │   ├── invoice_config.json      # Paths and hyperparameters
 │   ├── models/
-│   │   ├── layoutlm-base-uncased/  # Base model from HuggingFace (not tracked)
-│   │   └── invoice_model/          # Fine-tuned model (not tracked)
+│   │   ├── layoutlmv3-base/        # Base model from HuggingFace (not tracked)
+│   │   └── invoice_model_v3/       # Fine-tuned model (not tracked)
 │   ├── input_data/              # PDF invoices for training (not tracked)
 │   └── output_data/
 │       ├── annotations/         # Training annotations (.xlsx)
+│       ├── preannotations/      # Model pre-annotations for active learning
 │       └── results/             # Inference output (.xlsx)
 ├── requirements.txt
 ├── SETUP.md                     # Detailed setup instructions
@@ -108,9 +109,9 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Download LayoutLM base model
+### 3. Download LayoutLMv3 base model
 
-Download from [HuggingFace](https://huggingface.co/microsoft/layoutlm-base-uncased/tree/main) and place files in `invoice-analyzer/models/layoutlm-base-uncased/`.
+Download from [HuggingFace](https://huggingface.co/microsoft/layoutlmv3-base/tree/main) and place files in `invoice-analyzer/models/layoutlmv3-base/`.
 
 ### 4. Annotate, train, run
 
@@ -191,6 +192,7 @@ python evaluate.py --output output_data/results/eval_results.json
 - **Training**: HuggingFace Trainer + Accelerate
 - **OCR**: Tesseract (via pytesseract)
 - **PDF rendering**: Poppler (via pdf2image)
+- **Annotation GUI**: PyQt6 (dark theme, HiDPI/Retina, zoom/pan)
 - **Data**: pandas + openpyxl
 
 ## License
