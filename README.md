@@ -1,6 +1,6 @@
 # Invoice Analyzer - LayoutLM (PyTorch)
 
-Automated data extraction from PDF invoices using **LayoutLM v1** (Microsoft) -- a transformer model that combines text content with spatial layout information for token classification.
+Automated data extraction from PDF invoices using **LayoutLMv3** (Microsoft) -- a multimodal transformer that combines text, spatial layout and visual features for token classification. Also supports LayoutLM v1 for comparison.
 
 The system performs OCR on invoice PDFs and uses a fine-tuned LayoutLM model to identify and extract key fields:
 
@@ -128,18 +128,30 @@ python invoice_inference.py --pdf <invoice.pdf>
 
 See [SETUP.md](SETUP.md) for full configuration details and all CLI parameters.
 
-## Baseline metrics (LayoutLM v1)
+## Model metrics
 
-Evaluated on 3 annotated SAGE invoices (50 annotated words total). These are training-set metrics -- they establish a baseline for model improvements, not generalization performance.
+Evaluated on 3 annotated SAGE invoices (50 annotated words total). Training-set metrics to track model improvements.
+
+### LayoutLM v3 (current)
 
 | Entity | N | Exact Match | F1 (exact) | Avg Similarity |
 |--------|---|-------------|------------|----------------|
-| VENDOR | 3 | 0/3 | 0.000 | 0.039 |
-| CUSTOMER | 3 | 0/3 | 0.000 | 0.169 |
-| DATE | 3 | 2/3 | 0.667 | 0.800 |
-| TOTAL | 2 | 0/2 | 0.000 | 0.202 |
+| VENDOR | 3 | 0/3 | 0.000 | 0.185 |
+| CUSTOMER | 3 | 0/3 | 0.000 | 0.288 |
+| DATE | 3 | 3/3 | **1.000** | 1.000 |
+| TOTAL | 2 | 0/2 | 0.000 | 0.146 |
 | INVOICE_NUMBER | 3 | 0/3 | 0.000 | 0.200 |
+| **OVERALL** | **14** | **3/14** | -- | **0.379** |
+
+### LayoutLM v1 (baseline)
+
+| Entity | N | Exact Match | F1 (exact) | Avg Similarity |
+|--------|---|-------------|------------|----------------|
+| DATE | 3 | 2/3 | 0.667 | 0.800 |
+| Others | 11 | 0/11 | 0.000 | -- |
 | **OVERALL** | **14** | **2/14** | -- | **0.288** |
+
+**v3 vs v1**: DATE 67% -> 100% F1, overall similarity 0.288 -> 0.379. More training data needed for VENDOR/CUSTOMER/TOTAL/INVOICE_NUMBER.
 
 Run evaluation:
 ```bash
@@ -154,7 +166,7 @@ python evaluate.py --output output_data/results/eval_results.json
 
 ## Tech stack
 
-- **Model**: [LayoutLM v1](https://huggingface.co/microsoft/layoutlm-base-uncased) (HuggingFace Transformers)
+- **Model**: [LayoutLMv3](https://huggingface.co/microsoft/layoutlmv3-base) (multimodal: text + layout + vision)
 - **Deep Learning**: PyTorch
 - **Training**: HuggingFace Trainer + Accelerate
 - **OCR**: Tesseract (via pytesseract)

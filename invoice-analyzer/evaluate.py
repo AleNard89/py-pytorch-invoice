@@ -14,13 +14,13 @@ from pathlib import Path
 from datetime import datetime
 
 import pandas as pd
-from transformers import LayoutLMForTokenClassification, LayoutLMConfig
 
 from config import CONFIG, LABELS, id2label
 from utils import normalize_box, calculate_text_similarity
 from ocr import convert_pdf_to_images, process_image_with_ocr
-from model import load_local_tokenizer
+from model import load_model_and_tokenizer
 from extraction import extract_structured_data, apply_positional_heuristics
+from invoice_inference import encode_page_v1, encode_page_v3, run_model
 
 os.environ["HF_HUB_OFFLINE"] = "1"
 os.environ["TRANSFORMERS_OFFLINE"] = "1"
@@ -60,7 +60,7 @@ def load_ground_truth(annotation_path):
     return {k: v[0] for k, v in entities.items()}
 
 
-def run_inference(pdf_path, model, tokenizer):
+def run_inference(pdf_path, model, tokenizer_or_processor, version="v1"):
     """Esegue inferenza su un PDF e restituisce le entita' estratte come {tipo: testo}."""
     images = convert_pdf_to_images(pdf_path)
     if not images:
@@ -73,48 +73,16 @@ def run_inference(pdf_path, model, tokenizer):
 
     normalized_boxes = [normalize_box(b, image.width, image.height) for b in boxes]
 
-    try:
-        encoding = tokenizer(
-            words, boxes=normalized_boxes,
-            padding="max_length", truncation=True,
-            max_length=CONFIG["MAX_SEQ_LENGTH"],
-            return_tensors="pt", is_split_into_words=True,
-        )
-    except TypeError:
-        encoding = tokenizer(
-            words, padding="max_length", truncation=True,
-            max_length=CONFIG["MAX_SEQ_LENGTH"],
-            return_tensors="pt", is_split_into_words=True,
-        )
+    if version == "v3":
+        encoding = encode_page_v3(tokenizer_or_processor, words, normalized_boxes, image, CONFIG["MAX_SEQ_LENGTH"])
+    else:
+        encoding = encode_page_v1(tokenizer_or_processor, words, normalized_boxes, CONFIG["MAX_SEQ_LENGTH"])
 
-    if "bbox" not in encoding:
-        aligned_boxes = []
-        word_ids_enc = encoding.word_ids()
-        for i, token_id in enumerate(encoding["input_ids"][0]):
-            if token_id in (tokenizer.cls_token_id, tokenizer.sep_token_id, tokenizer.pad_token_id):
-                aligned_boxes.append([0, 0, 0, 0])
-            else:
-                widx = word_ids_enc[i]
-                if widx is not None and widx < len(normalized_boxes):
-                    aligned_boxes.append(normalized_boxes[widx])
-                else:
-                    aligned_boxes.append([0, 0, 0, 0])
-        if len(aligned_boxes) < CONFIG["MAX_SEQ_LENGTH"]:
-            aligned_boxes.extend([[0, 0, 0, 0]] * (CONFIG["MAX_SEQ_LENGTH"] - len(aligned_boxes)))
-        encoding["bbox"] = torch.tensor([aligned_boxes[:CONFIG["MAX_SEQ_LENGTH"]]], dtype=torch.long)
-
-    with torch.no_grad():
-        outputs = model(
-            input_ids=encoding["input_ids"],
-            attention_mask=encoding["attention_mask"],
-            token_type_ids=encoding["token_type_ids"],
-            bbox=encoding["bbox"],
-        )
-
+    outputs = run_model(model, encoding, version)
     predictions_logits = outputs.logits.argmax(-1).squeeze().tolist()
+
     token_predictions = {}
     word_ids_map = encoding.word_ids()
-
     for token_idx, pred_id in enumerate(predictions_logits):
         widx = word_ids_map[token_idx]
         if widx is not None:
@@ -312,11 +280,9 @@ def main():
     print(f"Annotazioni: {annotations_dir}")
     print(f"PDF: {pdfs_dir}")
 
-    model_config = LayoutLMConfig.from_pretrained(str(model_dir), local_files_only=True)
-    model = LayoutLMForTokenClassification.from_pretrained(str(model_dir), config=model_config, local_files_only=True)
-    tokenizer = load_local_tokenizer(str(model_dir))
+    model, tokenizer_or_processor, version = load_model_and_tokenizer(model_dir)
     model.eval()
-    print("Modello caricato.")
+    print(f"Modello LayoutLM {version} caricato.")
 
     annotation_files = sorted(annotations_dir.glob("*_annotated.xlsx"))
     if not annotation_files:
@@ -341,7 +307,7 @@ def main():
         ground_truth = load_ground_truth(ann_file)
         print(f"  Ground truth: {ground_truth}")
 
-        predictions = run_inference(pdf_path, model, tokenizer)
+        predictions = run_inference(pdf_path, model, tokenizer_or_processor, version)
         print(f"  Predizioni:   {predictions}")
 
         doc_result = evaluate_document(predictions, ground_truth)
@@ -359,6 +325,7 @@ def main():
         output_data = {
             "timestamp": start_time.isoformat(),
             "model": str(model_dir),
+            "version": version,
             "threshold": SIMILARITY_THRESHOLD,
             "documents": {name: result for name, result in zip(doc_names, all_doc_results)},
             "metrics": metrics,

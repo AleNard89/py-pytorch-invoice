@@ -18,8 +18,9 @@ def _detect_path(binary_name, fallbacks=None):
 DEFAULT_CONFIG = {
     "POPPLER_PATH": str(Path(_detect_path("pdftoppm", ["/opt/homebrew/bin/pdftoppm", "/usr/bin/pdftoppm"])).parent),
     "TESSERACT_PATH": _detect_path("tesseract", ["/opt/homebrew/bin/tesseract", "/usr/bin/tesseract"]),
-    "BASE_MODEL_DIR": "models/layoutlm-base-uncased",
-    "TRAINED_MODEL_DIR": "models/invoice_model",
+    "MODEL_VERSION": "v3",
+    "BASE_MODEL_DIR": "models/layoutlmv3-base",
+    "TRAINED_MODEL_DIR": "models/invoice_model_v3",
     "RESULTS_DIR": "output_data/results",
     "PDF_DPI": 300,
     "PDF_TIMEOUT": 120,
