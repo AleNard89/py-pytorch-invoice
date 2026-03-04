@@ -66,6 +66,7 @@ pytorch_modular/
 │   ├── model.py                 # LayoutLM tokenizer loading
 │   ├── extraction.py            # Entity extraction, postprocessing, heuristics
 │   ├── export.py                # Excel export, prediction visualization
+│   ├── evaluate.py              # Model evaluation (precision/recall/F1)
 │   ├── invoice_inference.py     # Inference entry point
 │   ├── train_invoice_model.py   # Training entry point (incremental learning)
 │   ├── annotation_tool.py       # GUI for creating training annotations
@@ -126,6 +127,25 @@ python invoice_inference.py --pdf <invoice.pdf>
 ```
 
 See [SETUP.md](SETUP.md) for full configuration details and all CLI parameters.
+
+## Baseline metrics (LayoutLM v1)
+
+Evaluated on 3 annotated SAGE invoices (50 annotated words total). These are training-set metrics -- they establish a baseline for model improvements, not generalization performance.
+
+| Entity | N | Exact Match | F1 (exact) | Avg Similarity |
+|--------|---|-------------|------------|----------------|
+| VENDOR | 3 | 0/3 | 0.000 | 0.039 |
+| CUSTOMER | 3 | 0/3 | 0.000 | 0.169 |
+| DATE | 3 | 2/3 | 0.667 | 0.800 |
+| TOTAL | 2 | 0/2 | 0.000 | 0.202 |
+| INVOICE_NUMBER | 3 | 0/3 | 0.000 | 0.200 |
+| **OVERALL** | **14** | **2/14** | -- | **0.288** |
+
+Run evaluation:
+```bash
+cd invoice-analyzer
+python evaluate.py --output output_data/results/eval_results.json
+```
 
 ## Tested on
 
