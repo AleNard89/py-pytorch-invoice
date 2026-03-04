@@ -1,5 +1,6 @@
 transformers
 torch
+accelerate
 pytesseract
 pdf2image
 Pillow

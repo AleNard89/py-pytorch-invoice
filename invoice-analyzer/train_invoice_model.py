@@ -41,8 +41,9 @@ def _detect_path(binary_name, fallbacks=None):
 DEFAULT_CONFIG = {
     "POPPLER_PATH": str(Path(_detect_path("pdftoppm", ["/opt/homebrew/bin/pdftoppm", "/usr/bin/pdftoppm"])).parent),
     "TESSERACT_PATH": _detect_path("tesseract", ["/opt/homebrew/bin/tesseract", "/usr/bin/tesseract"]),
-    "MODEL_DIR": "models/layoutlm-base-uncased",
-    "OUTPUT_DIR": "models/invoice_model",
+    "BASE_MODEL_DIR": "models/layoutlm-base-uncased",
+    "TRAINED_MODEL_DIR": "models/invoice_model",
+    "RESULTS_DIR": "output_data/results",
     "PDF_DPI": 300,
     "BATCH_SIZE": 2,
     "NUM_EPOCHS": 5,
@@ -290,8 +291,8 @@ def main():
     parser = argparse.ArgumentParser(description="Addestramento modello LayoutLM per fatture")
     parser.add_argument("--annotations", required=True, help="Percorso al file Excel con annotazioni")
     parser.add_argument("--pdfs_dir", default="input_data", help="Directory contenente i file PDF")
-    parser.add_argument("--model_name_or_path", default=CONFIG["MODEL_DIR"], help="Modello pre-addestrato o percorso locale")
-    parser.add_argument("--output_dir", default=CONFIG["OUTPUT_DIR"], help="Directory di output per il modello addestrato")
+    parser.add_argument("--model_name_or_path", default=CONFIG.get("BASE_MODEL_DIR", CONFIG.get("MODEL_DIR", "models/layoutlm-base-uncased")), help="Modello pre-addestrato o percorso locale")
+    parser.add_argument("--output_dir", default=CONFIG.get("TRAINED_MODEL_DIR", CONFIG.get("OUTPUT_DIR", "models/invoice_model")), help="Directory di output per il modello addestrato")
     parser.add_argument("--epochs", type=int, default=CONFIG["NUM_EPOCHS"], help="Numero di epoche di addestramento")
     parser.add_argument("--batch_size", type=int, default=CONFIG["BATCH_SIZE"], help="Dimensione del batch")
     parser.add_argument("--learning_rate", type=float, default=CONFIG["LEARNING_RATE"], help="Tasso di apprendimento")

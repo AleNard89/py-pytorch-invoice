@@ -44,8 +44,9 @@ def _detect_path(binary_name, fallbacks=None):
 DEFAULT_CONFIG = {
     "POPPLER_PATH": str(Path(_detect_path("pdftoppm", ["/opt/homebrew/bin/pdftoppm", "/usr/bin/pdftoppm"])).parent),
     "TESSERACT_PATH": _detect_path("tesseract", ["/opt/homebrew/bin/tesseract", "/usr/bin/tesseract"]),
-    "MODEL_DIR": "models/invoice_model",
-    "OUTPUT_DIR": "output_data/results",
+    "BASE_MODEL_DIR": "models/layoutlm-base-uncased",
+    "TRAINED_MODEL_DIR": "models/invoice_model",
+    "RESULTS_DIR": "output_data/results",
     "PDF_DPI": 300,
     "PDF_TIMEOUT": 120,
     "MAX_PAGES": 5,
@@ -2258,8 +2259,8 @@ def main():
     start_time = datetime.now()
     print(f"Inizio esecuzione inferenza: {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
-    model_dir = Path(args.model or CONFIG["MODEL_DIR"])
-    output_base_dir = Path(args.output or CONFIG["OUTPUT_DIR"])
+    model_dir = Path(args.model or CONFIG.get("TRAINED_MODEL_DIR", CONFIG.get("MODEL_DIR", "models/invoice_model")))
+    output_base_dir = Path(args.output or CONFIG.get("RESULTS_DIR", CONFIG.get("OUTPUT_DIR", "output_data/results")))
     poppler_path = args.poppler or CONFIG["POPPLER_PATH"]
     tesseract_path = args.tesseract or CONFIG["TESSERACT_PATH"]
 
@@ -2369,25 +2370,42 @@ def main():
             
             print(f"Numero di predizioni a livello di token mappate a parole OCR: {len(token_predictions)}")
 
-            # 1. Estrai i dati strutturati con il metodo standard
+            # 1. Estrai i dati strutturati dalle predizioni del modello
             structured_data = extract_structured_data(ocr_full_result, token_predictions)
             
-            # 2. Applica le euristiche di posizione
+            # 2. Applica le euristiche di posizione (solo bonus, non sovrascrive)
             structured_data = apply_positional_heuristics(structured_data, ocr_full_result)
             
-            # 3. Cerca specificamente i campi TOTAL con maggiore precisione
-            total_result = extract_total_with_enhanced_detection(ocr_full_result)
-            if total_result:
-                if "TOTAL" not in structured_data:
-                    structured_data["TOTAL"] = []
-                structured_data["TOTAL"] = [total_result]
-                print(f"Sostituito TOTAL con il valore trovato: {total_result['text']}")
+            # Salva i campi gia' trovati dal modello
+            model_found_fields = set(structured_data.keys())
+            expected_fields = {"VENDOR", "CUSTOMER", "DATE", "TOTAL", "INVOICE_NUMBER"}
+            missing_fields = expected_fields - model_found_fields
             
-            # 4. Cerca coppie etichetta-valore direttamente nel documento
-            enhanced_data = enhance_extraction_with_direct_label_matching(structured_data, ocr_full_result)
+            if missing_fields:
+                print(f"\nCampi mancanti dal modello: {missing_fields} -- uso post-processing solo per questi")
+                
+                # 3. Cerca TOTAL solo se il modello non l'ha trovato
+                if "TOTAL" in missing_fields:
+                    total_result = extract_total_with_enhanced_detection(ocr_full_result)
+                    if total_result:
+                        structured_data["TOTAL"] = [total_result]
+                        print(f"TOTAL trovato con detection avanzata: {total_result['text']}")
+                
+                # 4. Cerca coppie etichetta-valore solo per campi mancanti
+                enhanced_data = enhance_extraction_with_direct_label_matching(structured_data, ocr_full_result)
+                for field in missing_fields:
+                    if field in enhanced_data and field not in model_found_fields:
+                        structured_data[field] = enhanced_data[field]
+                
+                # 5. Applica regole solo per campi ancora mancanti
+                rule_data = add_rule_based_entities(ocr_full_result, structured_data)
+                for field in missing_fields:
+                    if field in rule_data and field not in structured_data:
+                        structured_data[field] = rule_data[field]
+            else:
+                print(f"\nTutti i campi trovati dal modello: {model_found_fields}")
             
-            # 5. Applica regole specifiche come ultima risorsa
-            final_data = add_rule_based_entities(ocr_full_result, enhanced_data)
+            final_data = structured_data
             
             all_results.append({f"page_{page_idx + 1}": final_data})
             
