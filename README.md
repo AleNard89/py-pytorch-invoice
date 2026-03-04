@@ -60,9 +60,15 @@ Path auto-detection works on macOS, Linux and Windows -- manual config is only n
 ```
 pytorch_modular/
 ├── invoice-analyzer/
+│   ├── config.py                # Shared configuration, labels, path auto-detection
+│   ├── utils.py                 # Format validators, text similarity, normalization
+│   ├── ocr.py                   # PDF-to-image conversion, Tesseract OCR
+│   ├── model.py                 # LayoutLM tokenizer loading
+│   ├── extraction.py            # Entity extraction, postprocessing, heuristics
+│   ├── export.py                # Excel export, prediction visualization
+│   ├── invoice_inference.py     # Inference entry point
+│   ├── train_invoice_model.py   # Training entry point (incremental learning)
 │   ├── annotation_tool.py       # GUI for creating training annotations
-│   ├── train_invoice_model.py   # Fine-tuning script (supports incremental learning)
-│   ├── invoice_inference.py     # Inference pipeline
 │   ├── invoice_config.json      # Paths and hyperparameters
 │   ├── models/
 │   │   ├── layoutlm-base-uncased/  # Base model from HuggingFace (not tracked)
