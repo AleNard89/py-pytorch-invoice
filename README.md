@@ -69,7 +69,8 @@ pytorch_modular/
 │   ├── evaluate.py              # Model evaluation (precision/recall/F1)
 │   ├── invoice_inference.py     # Inference entry point
 │   ├── train_invoice_model.py   # Training entry point (incremental learning)
-│   ├── annotation_tool.py       # GUI for creating training annotations
+│   ├── preannotate.py           # Model pre-annotation for active learning
+│   ├── annotation_tool.py       # GUI for creating/correcting annotations
 │   ├── invoice_config.json      # Paths and hyperparameters
 │   ├── models/
 │   │   ├── layoutlm-base-uncased/  # Base model from HuggingFace (not tracked)
@@ -124,6 +125,25 @@ python train_invoice_model.py --annotations <annotations.xlsx> --pdfs_dir <pdf_f
 
 # Run inference on a new invoice
 python invoice_inference.py --pdf <invoice.pdf>
+```
+
+### 5. Active learning (iterate faster)
+
+Once you have a trained model, use it to speed up annotation of new invoices:
+
+```bash
+# Model pre-annotates new PDFs (batch or single file)
+python preannotate.py --pdf input_data/new_invoice.pdf
+python preannotate.py --pdf input_data/ --min_confidence 0.3
+
+# Open annotation tool -> "Importa Pre-annotazioni" -> correct errors -> save
+python annotation_tool.py
+
+# Re-train with expanded dataset
+python train_invoice_model.py --annotations <combined.xlsx> --continue_from models/invoice_model_v3
+
+# Evaluate improvement
+python evaluate.py --output output_data/results/eval_v3_round2.json
 ```
 
 See [SETUP.md](SETUP.md) for full configuration details and all CLI parameters.

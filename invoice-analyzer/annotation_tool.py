@@ -5,9 +5,6 @@ Aiuta a creare annotazioni manualmente per le fatture, con interfaccia visuale
 
 import os
 import sys
-import json
-import platform
-import shutil
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import pandas as pd
@@ -16,73 +13,26 @@ from pathlib import Path
 from PIL import Image, ImageTk
 import pytesseract
 
-def _detect_path(binary_name, fallbacks=None):
-    path = shutil.which(binary_name)
-    if path:
-        return path
-    if fallbacks:
-        for fb in fallbacks:
-            if Path(fb).exists():
-                return fb
-    return binary_name
-
-config_file = Path("invoice_config.json")
-CONFIG = {
-    "POPPLER_PATH": str(Path(_detect_path("pdftoppm", ["/opt/homebrew/bin/pdftoppm", "/usr/bin/pdftoppm"])).parent),
-    "TESSERACT_PATH": _detect_path("tesseract", ["/opt/homebrew/bin/tesseract", "/usr/bin/tesseract"]),
-    "PDF_DPI": 300
-}
-
-if config_file.exists():
-    try:
-        with open(config_file, "r") as f:
-            CONFIG.update(json.load(f))
-    except Exception as e:
-        print(f"Errore nel caricamento della configurazione: {e}")
+from config import CONFIG, LABELS
 
 pytesseract.pytesseract.tesseract_cmd = CONFIG["TESSERACT_PATH"]
 
-# Importazione condizionale di pdf2image
 try:
     from pdf2image import convert_from_path
 except ImportError:
-    print("ERRORE: La libreria pdf2image non è installata.")
-    print("Installa con: pip install pdf2image")
-    print("Assicurati anche di avere Poppler installato sul tuo sistema.")
+    print("ERRORE: pip install pdf2image + installa Poppler")
     sys.exit(1)
 
-# Etichette disponibili
-LABELS = [
-    "O",                # Outside/Background
-    "B-VENDOR",         # Beginning of vendor name
-    "I-VENDOR",         # Inside vendor name
-    "B-CUSTOMER",       # Beginning of customer name
-    "I-CUSTOMER",       # Inside customer name
-    "B-DATE",           # Beginning of date
-    "I-DATE",           # Inside date
-    "B-TOTAL",          # Beginning of total amount
-    "I-TOTAL",          # Inside total amount
-    "B-ITEM",           # Beginning of item description
-    "I-ITEM",           # Inside item description
-    "B-QUANTITY",       # Beginning of quantity
-    "I-QUANTITY",       # Inside quantity
-    "B-PRICE",          # Beginning of price
-    "I-PRICE",          # Inside price
-    "B-INVOICE_NUMBER", # Beginning of invoice number
-    "I-INVOICE_NUMBER"  # Inside invoice number
-]
-
-# Colori per ciascuna categoria di etichetta
 COLORS = {
-    "VENDOR": "#ff6666",         # Rosso
-    "CUSTOMER": "#6666ff",       # Blu
-    "DATE": "#66ff66",           # Verde
-    "TOTAL": "#ff66ff",          # Viola
-    "ITEM": "#ffaa66",           # Arancione
-    "QUANTITY": "#66ffff",       # Ciano
-    "PRICE": "#ff66aa",          # Rosa
-    "INVOICE_NUMBER": "#aa6666", # Marrone
-    "O": "#eeeeee"               # Grigio chiaro (sfondo)
+    "VENDOR": "#ff6666",
+    "CUSTOMER": "#6666ff",
+    "DATE": "#66ff66",
+    "TOTAL": "#ff66ff",
+    "ITEM": "#ffaa66",
+    "QUANTITY": "#66ffff",
+    "PRICE": "#ff66aa",
+    "INVOICE_NUMBER": "#aa6666",
+    "O": "#eeeeee",
 }
 
 class ImageAnnotationApp:
@@ -115,6 +65,7 @@ class ImageAnnotationApp:
         menu_frame.pack(fill=tk.X, padx=5, pady=5)
         
         ttk.Button(menu_frame, text="Apri PDF", command=self.open_pdf).pack(side=tk.LEFT, padx=5)
+        ttk.Button(menu_frame, text="Importa Pre-annotazioni", command=self.import_preannotations).pack(side=tk.LEFT, padx=5)
         ttk.Button(menu_frame, text="Salva", command=self.save_annotations).pack(side=tk.LEFT, padx=5)
         ttk.Button(menu_frame, text="Pagina precedente", command=self.prev_page).pack(side=tk.LEFT, padx=5)
         ttk.Button(menu_frame, text="Pagina successiva", command=self.next_page).pack(side=tk.LEFT, padx=5)
@@ -163,12 +114,12 @@ class ImageAnnotationApp:
         self.tree_frame = ttk.LabelFrame(self.root, text="Annotazioni")
         self.tree_frame.pack(side=tk.LEFT, fill=tk.BOTH, padx=5, pady=5)
         
-        columns = ("Word", "Label", "X1", "Y1", "X2", "Y2")
+        columns = ("Word", "Label", "Conf", "X1", "Y1", "X2", "Y2")
         self.tree = ttk.Treeview(self.tree_frame, columns=columns, show="headings")
         
         for col in columns:
             self.tree.heading(col, text=col)
-            self.tree.column(col, width=70)
+            self.tree.column(col, width=55 if col in ("Conf", "X1", "Y1", "X2", "Y2") else 70)
         
         self.tree.pack(fill=tk.BOTH, expand=True)
         self.tree.bind("<ButtonRelease-1>", self.on_tree_select)
@@ -335,9 +286,13 @@ class ImageAnnotationApp:
         
         for word_idx, word_data in enumerate(words_data):
             if word_data["label"] != "O":
+                conf = word_data.get("confidence", "")
+                if isinstance(conf, float):
+                    conf = f"{conf:.2f}"
                 values = (
                     word_data["word"],
                     word_data["label"],
+                    conf,
                     word_data["x1"],
                     word_data["y1"],
                     word_data["x2"],
@@ -431,9 +386,71 @@ class ImageAnnotationApp:
             self.show_current_page()
             self.info_label.config(text=f"File: {os.path.basename(self.pdf_path)} | Pagina: {self.current_page + 1}/{len(self.images)}")
     
+    def import_preannotations(self):
+        """Importa pre-annotazioni generate dal modello e le applica alle parole OCR."""
+        if not self.images:
+            messagebox.showinfo("Info", "Apri prima un file PDF")
+            return
+
+        file_path = filedialog.askopenfilename(
+            title="Seleziona file pre-annotazioni",
+            filetypes=[("Excel files", "*.xlsx")],
+            initialdir="output_data/preannotations",
+        )
+        if not file_path:
+            return
+
+        try:
+            df = pd.read_excel(file_path)
+            required = ["word", "x1", "y1", "x2", "y2", "label"]
+            if not all(col in df.columns for col in required):
+                messagebox.showerror("Errore", f"Colonne mancanti. Richieste: {required}")
+                return
+
+            has_confidence = "confidence" in df.columns
+            applied = 0
+
+            for page_idx, words_data in enumerate(self.ocr_results):
+                if "page_num" in df.columns:
+                    page_df = df[df["page_num"] == page_idx + 1]
+                else:
+                    page_df = df[df["image_id"] == page_idx] if "image_id" in df.columns else df
+
+                for _, row in page_df.iterrows():
+                    pre_word = str(row["word"]).strip()
+                    pre_x1, pre_y1 = int(row["x1"]), int(row["y1"])
+                    pre_label = str(row["label"])
+
+                    if pre_label == "O":
+                        continue
+
+                    best_idx = None
+                    best_dist = float("inf")
+                    for widx, wd in enumerate(words_data):
+                        if wd["word"] == pre_word:
+                            dist = abs(wd["x1"] - pre_x1) + abs(wd["y1"] - pre_y1)
+                            if dist < best_dist:
+                                best_dist = dist
+                                best_idx = widx
+
+                    if best_idx is not None and best_dist < 20:
+                        words_data[best_idx]["label"] = pre_label
+                        if has_confidence:
+                            words_data[best_idx]["confidence"] = float(row["confidence"])
+                        applied += 1
+
+            self.show_current_page()
+            messagebox.showinfo(
+                "Pre-annotazioni importate",
+                f"Applicate {applied} label dal modello.\n"
+                f"Correggi le label errate e salva.",
+            )
+        except Exception as e:
+            messagebox.showerror("Errore", f"Errore nell'importazione: {e}")
+            traceback.print_exc()
+
     def on_mousewheel(self, event, delta=None):
         """Gestisce lo zoom con la rotella del mouse"""
-        # Non implementato in questa versione semplificata
         pass
     
     def save_annotations(self):
