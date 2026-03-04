@@ -181,7 +181,7 @@ python evaluate.py --output output_data/results/eval_results.json
 
 ## Tested on
 
-- macOS (Apple Silicon) -- Python 3.14, PyTorch 2.10, Transformers 5.2
+- macOS (Apple Silicon M3 Pro) -- Python 3.14, PyTorch 2.10, Transformers 5.2
 - Windows 10/11 -- Python 3.10+
 
 ## Tech stack
