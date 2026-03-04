@@ -33,12 +33,27 @@ PDF Invoice
 Excel output
 ```
 
-The extraction pipeline applies multiple strategies in sequence:
-1. **Model prediction** -- LayoutLM token classification on OCR output
-2. **Positional heuristics** -- scoring based on where entities appear in the document (e.g. totals near the bottom)
-3. **Enhanced total detection** -- specialized search for monetary amounts near total-related keywords
-4. **Direct label-value matching** -- scanning for known label patterns (multilingual) and extracting adjacent values
-5. **Rule-based validation** -- cross-checking entity formats (date validation, amount parsing, invoice number patterns)
+The extraction pipeline uses a model-first approach:
+1. **Model prediction** -- LayoutLM token classification on OCR output (primary source of truth)
+2. **Positional heuristics** -- scoring adjustments based on where entities appear in the document
+3. **Fallback strategies** (only for fields the model did not find):
+   - Enhanced total detection near total-related keywords
+   - Direct label-value matching for known patterns (multilingual)
+   - Rule-based validation (date, amount, invoice number format checks)
+
+## Configuration
+
+The file `invoice-analyzer/invoice_config.json` controls paths and hyperparameters:
+
+| Key | Description |
+|-----|-------------|
+| `POPPLER_PATH` | Path to Poppler binaries (auto-detected if in PATH) |
+| `TESSERACT_PATH` | Path to Tesseract binary (auto-detected if in PATH) |
+| `BASE_MODEL_DIR` | LayoutLM base model for training |
+| `TRAINED_MODEL_DIR` | Fine-tuned model for inference |
+| `RESULTS_DIR` | Output directory for inference results |
+
+Path auto-detection works on macOS, Linux and Windows -- manual config is only needed if tools are not in system PATH.
 
 ## Project structure
 
@@ -49,9 +64,13 @@ pytorch_modular/
 │   ├── train_invoice_model.py   # Fine-tuning script (supports incremental learning)
 │   ├── invoice_inference.py     # Inference pipeline
 │   ├── invoice_config.json      # Paths and hyperparameters
-│   ├── models/                  # LayoutLM base model + trained model (not tracked)
+│   ├── models/
+│   │   ├── layoutlm-base-uncased/  # Base model from HuggingFace (not tracked)
+│   │   └── invoice_model/          # Fine-tuned model (not tracked)
 │   ├── input_data/              # PDF invoices for training (not tracked)
-│   └── output_data/             # Annotations and results (not tracked)
+│   └── output_data/
+│       ├── annotations/         # Training annotations (.xlsx)
+│       └── results/             # Inference output (.xlsx)
 ├── requirements.txt
 ├── SETUP.md                     # Detailed setup instructions
 └── README.md
@@ -102,10 +121,16 @@ python invoice_inference.py --pdf <invoice.pdf>
 
 See [SETUP.md](SETUP.md) for full configuration details and all CLI parameters.
 
+## Tested on
+
+- macOS (Apple Silicon) -- Python 3.14, PyTorch 2.10, Transformers 5.2
+- Windows 10/11 -- Python 3.10+
+
 ## Tech stack
 
 - **Model**: [LayoutLM v1](https://huggingface.co/microsoft/layoutlm-base-uncased) (HuggingFace Transformers)
 - **Deep Learning**: PyTorch
+- **Training**: HuggingFace Trainer + Accelerate
 - **OCR**: Tesseract (via pytesseract)
 - **PDF rendering**: Poppler (via pdf2image)
 - **Data**: pandas + openpyxl
