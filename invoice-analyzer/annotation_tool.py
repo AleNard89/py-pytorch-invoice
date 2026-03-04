@@ -12,41 +12,192 @@ import pandas as pd
 import pytesseract
 from PIL import Image
 from PyQt6.QtWidgets import (
-    QApplication, QMainWindow, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem,
+    QApplication, QMainWindow, QGraphicsView, QGraphicsScene,
     QGraphicsRectItem, QGraphicsSimpleTextItem, QDockWidget, QListWidget,
     QListWidgetItem, QToolBar, QFileDialog, QMessageBox, QStatusBar,
     QTreeWidget, QTreeWidgetItem, QHeaderView, QWidget, QVBoxLayout,
-    QPushButton, QLabel, QSplitter,
+    QHBoxLayout, QPushButton, QLabel, QFrame, QSizePolicy,
 )
 from PyQt6.QtGui import (
     QPixmap, QImage, QPen, QColor, QBrush, QFont, QAction, QWheelEvent,
-    QPainter,
+    QPainter, QIcon, QPalette, QLinearGradient,
 )
-from PyQt6.QtCore import Qt, QRectF
+from PyQt6.QtCore import Qt, QRectF, QSize
 
 from config import CONFIG, LABELS
 from pdf2image import convert_from_path
 
 pytesseract.pytesseract.tesseract_cmd = CONFIG["TESSERACT_PATH"]
 
-COLORS = {
-    "VENDOR": "#ff6666",
-    "CUSTOMER": "#6666ff",
-    "DATE": "#66ff66",
-    "TOTAL": "#ff66ff",
-    "ITEM": "#ffaa66",
-    "QUANTITY": "#66ffff",
-    "PRICE": "#ff66aa",
-    "INVOICE_NUMBER": "#cc8844",
-    "O": "#999999",
+# Palette moderna con colori piu' saturi e distinti
+ENTITY_COLORS = {
+    "VENDOR":         {"hex": "#E74C3C", "name": "Fornitore"},
+    "CUSTOMER":       {"hex": "#3498DB", "name": "Cliente"},
+    "DATE":           {"hex": "#2ECC71", "name": "Data"},
+    "TOTAL":          {"hex": "#9B59B6", "name": "Totale"},
+    "ITEM":           {"hex": "#E67E22", "name": "Voce"},
+    "QUANTITY":       {"hex": "#1ABC9C", "name": "Quantita'"},
+    "PRICE":          {"hex": "#E91E63", "name": "Prezzo"},
+    "INVOICE_NUMBER": {"hex": "#F39C12", "name": "N. Fattura"},
 }
+
+DARK_BG = "#1E1E2E"
+PANEL_BG = "#2B2B3C"
+SURFACE = "#363649"
+TEXT_PRIMARY = "#CDD6F4"
+TEXT_SECONDARY = "#A6ADC8"
+ACCENT = "#89B4FA"
+BORDER = "#45475A"
+
+STYLESHEET = f"""
+QMainWindow {{
+    background-color: {DARK_BG};
+}}
+QToolBar {{
+    background-color: {PANEL_BG};
+    border-bottom: 1px solid {BORDER};
+    spacing: 4px;
+    padding: 4px 8px;
+}}
+QToolBar QToolButton {{
+    background-color: {SURFACE};
+    color: {TEXT_PRIMARY};
+    border: 1px solid {BORDER};
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+}}
+QToolBar QToolButton:hover {{
+    background-color: {ACCENT};
+    color: {DARK_BG};
+    border-color: {ACCENT};
+}}
+QToolBar QToolButton:pressed {{
+    background-color: #7BA3E0;
+}}
+QToolBar::separator {{
+    width: 1px;
+    background-color: {BORDER};
+    margin: 4px 8px;
+}}
+QDockWidget {{
+    color: {TEXT_PRIMARY};
+    titlebar-close-icon: none;
+    titlebar-normal-icon: none;
+    font-size: 13px;
+    font-weight: bold;
+}}
+QDockWidget::title {{
+    background-color: {PANEL_BG};
+    padding: 8px;
+    border-bottom: 1px solid {BORDER};
+}}
+QListWidget {{
+    background-color: {PANEL_BG};
+    border: none;
+    outline: none;
+    font-size: 13px;
+}}
+QListWidget::item {{
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin: 2px 4px;
+}}
+QListWidget::item:selected {{
+    background-color: {SURFACE};
+    border: 1px solid {ACCENT};
+}}
+QListWidget::item:hover {{
+    background-color: {SURFACE};
+}}
+QTreeWidget {{
+    background-color: {PANEL_BG};
+    color: {TEXT_PRIMARY};
+    border: none;
+    outline: none;
+    font-size: 12px;
+    alternate-background-color: {SURFACE};
+}}
+QTreeWidget::item {{
+    padding: 4px 2px;
+    border-bottom: 1px solid {BORDER};
+}}
+QTreeWidget::item:selected {{
+    background-color: {SURFACE};
+    border: 1px solid {ACCENT};
+}}
+QHeaderView::section {{
+    background-color: {SURFACE};
+    color: {TEXT_SECONDARY};
+    padding: 6px;
+    border: none;
+    border-bottom: 2px solid {ACCENT};
+    font-weight: bold;
+    font-size: 11px;
+    text-transform: uppercase;
+}}
+QPushButton {{
+    background-color: {SURFACE};
+    color: {TEXT_PRIMARY};
+    border: 1px solid {BORDER};
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+}}
+QPushButton:hover {{
+    background-color: {ACCENT};
+    color: {DARK_BG};
+    border-color: {ACCENT};
+}}
+QPushButton#dangerBtn {{
+    border-color: #E74C3C;
+    color: #E74C3C;
+}}
+QPushButton#dangerBtn:hover {{
+    background-color: #E74C3C;
+    color: white;
+}}
+QStatusBar {{
+    background-color: {PANEL_BG};
+    color: {TEXT_SECONDARY};
+    border-top: 1px solid {BORDER};
+    font-size: 12px;
+    padding: 4px 12px;
+}}
+QGraphicsView {{
+    background-color: #16161E;
+    border: none;
+}}
+QLabel#sectionTitle {{
+    color: {TEXT_SECONDARY};
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 4px 8px;
+}}
+QLabel#statsLabel {{
+    color: {TEXT_PRIMARY};
+    font-size: 12px;
+    padding: 4px 8px;
+    background-color: {SURFACE};
+    border-radius: 4px;
+}}
+QFrame#separator {{
+    background-color: {BORDER};
+    max-height: 1px;
+}}
+"""
 
 
 def get_entity_color(label):
     if label == "O":
-        return QColor(COLORS["O"])
+        return QColor("#666677")
     entity = label[2:] if label.startswith(("B-", "I-")) else label
-    return QColor(COLORS.get(entity, "#999999"))
+    info = ENTITY_COLORS.get(entity)
+    return QColor(info["hex"]) if info else QColor("#666677")
 
 
 def pil_to_qpixmap(pil_image):
@@ -58,8 +209,6 @@ def pil_to_qpixmap(pil_image):
 
 
 class InvoiceView(QGraphicsView):
-    """QGraphicsView con zoom via rotella e pan con click destro."""
-
     def __init__(self, scene, parent=None):
         super().__init__(scene, parent)
         self.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -103,11 +252,24 @@ class InvoiceView(QGraphicsView):
         self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
 
 
+class ClickableView(InvoiceView):
+    def __init__(self, scene, app, parent=None):
+        super().__init__(scene, parent)
+        self.app = app
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and not self._panning:
+            scene_pos = self.mapToScene(event.position().toPoint())
+            self.app._on_scene_click(scene_pos)
+            return
+        super().mousePressEvent(event)
+
+
 class AnnotationApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Annotazione Fatture")
-        self.resize(1500, 900)
+        self.setWindowTitle("Invoice Annotation Tool")
+        self.resize(1600, 950)
 
         self.pdf_path = None
         self.images = []
@@ -119,99 +281,183 @@ class AnnotationApp(QMainWindow):
         self._build_ui()
 
     def _build_ui(self):
-        # Toolbar
         toolbar = QToolBar("Azioni")
         toolbar.setMovable(False)
+        toolbar.setIconSize(QSize(18, 18))
+        toolbar.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
         self.addToolBar(toolbar)
 
-        act_open = QAction("Apri PDF", self)
-        act_open.triggered.connect(self.open_pdf)
-        toolbar.addAction(act_open)
-
-        act_import = QAction("Importa Pre-annotazioni", self)
-        act_import.triggered.connect(self.import_preannotations)
-        toolbar.addAction(act_import)
-
-        act_save = QAction("Salva", self)
-        act_save.triggered.connect(self.save_annotations)
-        toolbar.addAction(act_save)
+        for text, slot in [
+            ("Apri PDF", self.open_pdf),
+            ("Importa Pre-annotazioni", self.import_preannotations),
+            ("Salva", self.save_annotations),
+        ]:
+            act = QAction(text, self)
+            act.triggered.connect(slot)
+            toolbar.addAction(act)
 
         toolbar.addSeparator()
 
-        act_prev = QAction("< Pagina", self)
-        act_prev.triggered.connect(self.prev_page)
-        toolbar.addAction(act_prev)
+        for text, slot in [
+            ("\u25C0  Pagina", self.prev_page),
+            ("Pagina  \u25B6", self.next_page),
+            ("Fit", lambda: self.view.fit_page()),
+        ]:
+            act = QAction(text, self)
+            act.triggered.connect(slot)
+            toolbar.addAction(act)
 
-        act_next = QAction("Pagina >", self)
-        act_next.triggered.connect(self.next_page)
-        toolbar.addAction(act_next)
+        toolbar.addSeparator()
 
-        act_fit = QAction("Fit", self)
-        act_fit.triggered.connect(lambda: self.view.fit_page())
-        toolbar.addAction(act_fit)
-
-        act_reset = QAction("Reset Label Pagina", self)
+        act_reset = QAction("Reset Pagina", self)
         act_reset.triggered.connect(self.reset_page_labels)
         toolbar.addAction(act_reset)
 
-        # Scene e View
+        # Scene + View
         self.scene = QGraphicsScene()
-        self.view = InvoiceView(self.scene, self)
+        self.view = ClickableView(self.scene, self)
         self.view.setMinimumWidth(700)
+        self.setCentralWidget(self.view)
 
-        # Pannello etichette (sinistra)
-        label_dock = QDockWidget("Etichette", self)
+        # --- Pannello sinistro: etichette ---
+        label_dock = QDockWidget("", self)
         label_dock.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
+
+        label_panel = QWidget()
+        label_layout = QVBoxLayout(label_panel)
+        label_layout.setContentsMargins(0, 0, 0, 0)
+        label_layout.setSpacing(0)
+
+        title = QLabel("ETICHETTE")
+        title.setObjectName("sectionTitle")
+        label_layout.addWidget(title)
+
+        sep = QFrame()
+        sep.setObjectName("separator")
+        sep.setFrameShape(QFrame.Shape.HLine)
+        label_layout.addWidget(sep)
+
         self.label_list = QListWidget()
-        self.label_list.setFixedWidth(180)
+        self.label_list.setFixedWidth(200)
+
+        # "O" separato, poi raggruppati per entita'
+        item_o = QListWidgetItem("  O  (Background)")
+        item_o.setForeground(QBrush(QColor(TEXT_SECONDARY)))
+        font = QFont("Helvetica Neue", 13)
+        item_o.setFont(font)
+        self.label_list.addItem(item_o)
+
+        entities_added = set()
         for label in LABELS:
-            item = QListWidgetItem(label)
+            if label == "O":
+                continue
+            entity = label[2:]
             color = get_entity_color(label)
-            item.setForeground(QBrush(color if label != "O" else QColor("#333333")))
-            font = QFont()
-            font.setBold(True)
-            item.setFont(font)
+            info = ENTITY_COLORS.get(entity, {})
+            name = info.get("name", entity)
+
+            if entity not in entities_added:
+                entities_added.add(entity)
+                spacer = QListWidgetItem("")
+                spacer.setFlags(Qt.ItemFlag.NoItemFlags)
+                spacer.setSizeHint(QSize(0, 6))
+                self.label_list.addItem(spacer)
+
+            prefix = "B" if label.startswith("B-") else "I"
+            display = f"  {prefix}  {name}"
+            item = QListWidgetItem(display)
+            item.setForeground(QBrush(color))
+            f = QFont("Helvetica Neue", 13)
+            if prefix == "B":
+                f.setBold(True)
+            item.setFont(f)
             self.label_list.addItem(item)
+
         self.label_list.setCurrentRow(0)
         self.label_list.currentRowChanged.connect(self._on_label_changed)
-        label_dock.setWidget(self.label_list)
+        label_layout.addWidget(self.label_list)
+
+        # Legenda colori compatta
+        legend_title = QLabel("LEGENDA")
+        legend_title.setObjectName("sectionTitle")
+        label_layout.addWidget(legend_title)
+
+        for entity, info in ENTITY_COLORS.items():
+            leg = QLabel(f"  \u25CF  {info['name']}")
+            leg.setStyleSheet(f"color: {info['hex']}; font-size: 11px; padding: 2px 8px;")
+            label_layout.addWidget(leg)
+
+        label_layout.addStretch()
+        label_dock.setWidget(label_panel)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, label_dock)
 
-        # Tabella annotazioni (destra)
-        ann_dock = QDockWidget("Annotazioni", self)
+        # --- Pannello destro: annotazioni ---
+        ann_dock = QDockWidget("", self)
         ann_dock.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
-        ann_widget = QWidget()
-        ann_layout = QVBoxLayout(ann_widget)
-        ann_layout.setContentsMargins(2, 2, 2, 2)
+
+        ann_panel = QWidget()
+        ann_layout = QVBoxLayout(ann_panel)
+        ann_layout.setContentsMargins(0, 0, 0, 0)
+        ann_layout.setSpacing(0)
+
+        ann_title = QLabel("ANNOTAZIONI")
+        ann_title.setObjectName("sectionTitle")
+        ann_layout.addWidget(ann_title)
+
+        sep2 = QFrame()
+        sep2.setObjectName("separator")
+        sep2.setFrameShape(QFrame.Shape.HLine)
+        ann_layout.addWidget(sep2)
+
+        self.stats_label = QLabel("Nessuna annotazione")
+        self.stats_label.setObjectName("statsLabel")
+        ann_layout.addWidget(self.stats_label)
 
         self.ann_tree = QTreeWidget()
         self.ann_tree.setHeaderLabels(["Parola", "Label", "Conf"])
         self.ann_tree.setColumnCount(3)
+        self.ann_tree.setAlternatingRowColors(True)
+        self.ann_tree.setRootIsDecorated(False)
         header = self.ann_tree.header()
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        self.ann_tree.setFixedWidth(300)
+        self.ann_tree.setFixedWidth(320)
         self.ann_tree.itemClicked.connect(self._on_annotation_clicked)
         ann_layout.addWidget(self.ann_tree)
 
-        btn_delete = QPushButton("Rimuovi Label")
+        btn_delete = QPushButton("Rimuovi Label Selezionata")
+        btn_delete.setObjectName("dangerBtn")
         btn_delete.clicked.connect(self.delete_selected_annotation)
         ann_layout.addWidget(btn_delete)
 
-        ann_dock.setWidget(ann_widget)
+        ann_dock.setWidget(ann_panel)
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, ann_dock)
-
-        self.setCentralWidget(self.view)
 
         # Status bar
         self.status = QStatusBar()
         self.setStatusBar(self.status)
-        self.status.showMessage("Apri un PDF per iniziare")
+        self.status.showMessage("Apri un PDF per iniziare  |  Click SX = annota  |  Click DX = pan  |  Rotella = zoom")
 
     def _on_label_changed(self, row):
-        if 0 <= row < len(LABELS):
-            self.selected_label = LABELS[row]
+        real_idx = 0
+        for i in range(row + 1):
+            item = self.label_list.item(i)
+            if item and not (item.flags() & Qt.ItemFlag.ItemIsEnabled) == Qt.ItemFlag.NoItemFlags:
+                pass
+        # Map row back to LABELS index
+        valid_rows = []
+        for i in range(self.label_list.count()):
+            item = self.label_list.item(i)
+            if item and item.flags() != Qt.ItemFlag.NoItemFlags:
+                valid_rows.append(i)
+
+        if row in valid_rows:
+            label_idx = valid_rows.index(row)
+            if 0 <= label_idx < len(LABELS):
+                self.selected_label = LABELS[label_idx]
+
+    # --- PDF / OCR ---
 
     def open_pdf(self):
         path, _ = QFileDialog.getOpenFileName(self, "Apri PDF", "input_data", "PDF (*.pdf)")
@@ -225,7 +471,6 @@ class AnnotationApp(QMainWindow):
 
         try:
             self.images = convert_from_path(path, dpi=CONFIG["PDF_DPI"], poppler_path=CONFIG["POPPLER_PATH"])
-
             for img in self.images:
                 ocr = pytesseract.image_to_data(img, output_type=pytesseract.Output.DICT)
                 words_data = []
@@ -245,10 +490,15 @@ class AnnotationApp(QMainWindow):
 
             self._show_page()
             self.view.fit_page()
-            self.status.showMessage(f"{Path(path).name} | Pagina 1/{len(self.images)} | {len(self.ocr_results[0])} parole")
+            self.status.showMessage(
+                f"{Path(path).name}  |  Pagina 1/{len(self.images)}  |  "
+                f"{len(self.ocr_results[0])} parole OCR  |  Click SX = annota"
+            )
         except Exception as e:
             QMessageBox.critical(self, "Errore", f"Errore apertura PDF:\n{e}")
             traceback.print_exc()
+
+    # --- Rendering ---
 
     def _show_page(self):
         self.scene.clear()
@@ -270,28 +520,35 @@ class AnnotationApp(QMainWindow):
 
     def _add_word_rect(self, idx, wd):
         x1, y1, x2, y2 = wd["x1"], wd["y1"], wd["x2"], wd["y2"]
+        w, h = x2 - x1, y2 - y1
         label = wd["label"]
         color = get_entity_color(label)
 
-        pen = QPen(color, 2 if label != "O" else 0.5)
-        rect = self.scene.addRect(x1, y1, x2 - x1, y2 - y1, pen)
-        rect.setData(0, idx)
-        rect.setZValue(1)
-        rect.setCursor(Qt.CursorShape.PointingHandCursor)
-
         if label != "O":
+            pen = QPen(color, 2.5)
+            pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+            rect = self.scene.addRect(x1, y1, w, h, pen)
+
             fill = QColor(color)
-            fill.setAlpha(40)
+            fill.setAlpha(35)
             rect.setBrush(QBrush(fill))
 
-            text_item = QGraphicsSimpleTextItem(label)
-            font = QFont("Arial", 7)
+            tag = label.split("-", 1)[1] if "-" in label else label
+            prefix = "B" if label.startswith("B-") else "I"
+            text_item = QGraphicsSimpleTextItem(f"{prefix}:{tag}")
+            font = QFont("Helvetica Neue", 6, QFont.Weight.Bold)
             text_item.setFont(font)
             text_item.setBrush(QBrush(color))
-            text_item.setPos(x1, y1 - 12)
-            text_item.setZValue(2)
+            text_item.setPos(x1 + 1, y1 - 10)
+            text_item.setZValue(3)
             self.scene.addItem(text_item)
+        else:
+            pen = QPen(QColor(100, 100, 120, 60), 0.5)
+            rect = self.scene.addRect(x1, y1, w, h, pen)
 
+        rect.setData(0, idx)
+        rect.setZValue(1 if label == "O" else 2)
+        rect.setCursor(Qt.CursorShape.PointingHandCursor)
         self.word_rects.append(rect)
 
     def _on_scene_click(self, scene_pos):
@@ -306,31 +563,41 @@ class AnnotationApp(QMainWindow):
                     self._show_page()
                     return
 
-    def mousePressEvent_view(self, event):
-        if event.button() == Qt.MouseButton.LeftButton:
-            scene_pos = self.view.mapToScene(event.position().toPoint())
-            self._on_scene_click(scene_pos)
+    # --- Annotation table ---
 
     def _update_annotation_table(self):
         self.ann_tree.clear()
         if not self.ocr_results:
+            self.stats_label.setText("Nessuna annotazione")
             return
 
         words_data = self.ocr_results[self.current_page]
+        count = 0
+        entity_counts = {}
+
         for idx, wd in enumerate(words_data):
             if wd["label"] != "O":
-                conf = ""
-                if wd.get("confidence") is not None:
-                    conf = f"{wd['confidence']:.2f}"
+                count += 1
+                conf = f"{wd['confidence']:.2f}" if wd.get("confidence") is not None else ""
                 item = QTreeWidgetItem([wd["word"], wd["label"], conf])
                 item.setData(0, Qt.ItemDataRole.UserRole, idx)
                 color = get_entity_color(wd["label"])
+                item.setForeground(0, QBrush(QColor(TEXT_PRIMARY)))
                 item.setForeground(1, QBrush(color))
+                item.setForeground(2, QBrush(QColor(TEXT_SECONDARY)))
                 self.ann_tree.addTopLevelItem(item)
+
+                entity = wd["label"][2:] if wd["label"].startswith(("B-", "I-")) else wd["label"]
+                entity_counts[entity] = entity_counts.get(entity, 0) + 1
+
+        parts = [f"{count} label"]
+        for ent, cnt in sorted(entity_counts.items()):
+            parts.append(f"{ent}: {cnt}")
+        self.stats_label.setText("  |  ".join(parts))
 
     def _on_annotation_clicked(self, item, column):
         idx = item.data(0, Qt.ItemDataRole.UserRole)
-        if idx is not None and idx < len(self.word_rects):
+        if idx is not None:
             wd = self.ocr_results[self.current_page][idx]
             cx = (wd["x1"] + wd["x2"]) / 2
             cy = (wd["y1"] + wd["y2"]) / 2
@@ -353,6 +620,8 @@ class AnnotationApp(QMainWindow):
             wd["label"] = "O"
             wd["confidence"] = None
         self._show_page()
+
+    # --- Import / Export ---
 
     def import_preannotations(self):
         if not self.images:
@@ -449,49 +718,39 @@ class AnnotationApp(QMainWindow):
             QMessageBox.critical(self, "Errore", f"Errore salvataggio:\n{e}")
             traceback.print_exc()
 
+    # --- Navigation ---
+
     def prev_page(self):
         if self.images and self.current_page > 0:
             self.current_page -= 1
             self._show_page()
             self.view.fit_page()
-            self.status.showMessage(f"Pagina {self.current_page + 1}/{len(self.images)}")
+            self._update_status()
 
     def next_page(self):
         if self.images and self.current_page < len(self.images) - 1:
             self.current_page += 1
             self._show_page()
             self.view.fit_page()
-            self.status.showMessage(f"Pagina {self.current_page + 1}/{len(self.images)}")
+            self._update_status()
 
-
-class ClickableView(InvoiceView):
-    """View che intercetta click sinistro per annotare."""
-
-    def __init__(self, scene, app, parent=None):
-        super().__init__(scene, parent)
-        self.app = app
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton and not self._panning:
-            scene_pos = self.mapToScene(event.position().toPoint())
-            self.app._on_scene_click(scene_pos)
-            return
-        super().mousePressEvent(event)
+    def _update_status(self):
+        if self.pdf_path and self.images:
+            n_labels = sum(1 for wd in self.ocr_results[self.current_page] if wd["label"] != "O")
+            self.status.showMessage(
+                f"{Path(self.pdf_path).name}  |  "
+                f"Pagina {self.current_page + 1}/{len(self.images)}  |  "
+                f"{len(self.ocr_results[self.current_page])} parole  |  "
+                f"{n_labels} annotate"
+            )
 
 
 def main():
     app = QApplication(sys.argv)
-    app.setStyle("Fusion")
+    app.setStyleSheet(STYLESHEET)
 
     window = AnnotationApp()
-    # Sostituisci la view con ClickableView
-    old_view = window.view
-    window.view = ClickableView(window.scene, window)
-    window.view.setMinimumWidth(700)
-    window.setCentralWidget(window.view)
-
     window.show()
-    window.status.showMessage("Apri un PDF per iniziare | Click sinistro = annota | Click destro = pan | Rotella = zoom")
     sys.exit(app.exec())
 
 
