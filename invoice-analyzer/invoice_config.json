@@ -1,0 +1,14 @@
+{
+    "POPPLER_PATH": "/opt/homebrew/bin",
+    "TESSERACT_PATH": "/opt/homebrew/bin/tesseract",
+    "MODEL_DIR": "models/layoutlm-base-uncased",
+    "OUTPUT_DIR": "models/invoice_model",
+    "PDF_DPI": 300,
+    "BATCH_SIZE": 2,
+    "NUM_EPOCHS": 5,
+    "LEARNING_RATE": 2e-05,
+    "MAX_PAGES": 2,
+    "MAX_SEQ_LENGTH": 512,
+    "PDF_TIMEOUT": 120,
+    "USE_LOCAL_MODEL": true
+}

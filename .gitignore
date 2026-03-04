@@ -1,0 +1,38 @@
+.DS_Store
+.env
+__pycache__/
+*.pyc
+venv/
+.venv/
+*.log
+.idea/
+.vscode/
+
+# File di sviluppo / note personali
+Prompt.txt
+installazioni.txt
+programma.txt
+
+# File binari pesanti
+*.bin
+*.zip
+*.exe
+Config/pytorch_model.bin
+PyTorch_OLD.zip
+
+# Modelli ML (troppo grandi per git)
+Config/
+invoice-analyzer/models/
+
+# Cartelle di backup/vecchie versioni
+PyTorch_OLD/
+BKP_Invoice/
+invoice-analyzer/TOBEDELETE/
+
+# Dati di test
+documenti_test/
+invoice-analyzer/input_data/
+invoice-analyzer/output_data/
+
+# Documenti di output
+*.xlsx
