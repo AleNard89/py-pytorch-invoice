@@ -197,4 +197,4 @@ python evaluate.py --output output_data/results/eval_results.json
 
 ## License
 
-This project is provided as-is for educational and personal use.
+MIT
